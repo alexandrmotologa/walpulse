@@ -1,8 +1,51 @@
-# WalPulse
+<p align="center">
+  <img src="docs/images/logo.png" alt="WalPulse Logo" width="160" height="160">
+</p>
+
+<h1 align="center">WalPulse</h1>
+
+<p align="center">
+  <strong>Zero-polling PostgreSQL Change Data Capture engine with native pgoutput decoding, schema catalog tracking, transactional outbox routing, and real-time operator studio.</strong>
+</p>
+
+<p align="center">
+  <a href="#core-capabilities">Capabilities</a> &bull;
+  <a href="#dashboard-and-studio">Dashboard & Studio</a> &bull;
+  <a href="#architecture">Architecture</a> &bull;
+  <a href="#quickstart">Quickstart</a> &bull;
+  <a href="#rest-api-reference">REST API</a> &bull;
+  <a href="#verification-and-testing">Testing</a>
+</p>
+
+---
 
 WalPulse is a standalone Change Data Capture (CDC) engine and stream transformer for PostgreSQL. It attaches directly to PostgreSQL logical replication slots using the native `pgoutput` streaming protocol over standard TCP. It captures row-level inserts, updates, and deletes with sub-millisecond latency, performs zero polling on source tables, transforms payloads in flight, and forwards events to Kafka, HTTP webhooks, or log sinks.
 
 Unlike Kafka Connect with Debezium, WalPulse runs as an independent lightweight binary. It requires no JVM cluster coordination, starts in seconds, and uses Java 21 Virtual Threads to handle streaming pipelines with low memory overhead.
+
+## Dashboard and Studio
+
+WalPulse includes a built-in dark mode web console served at `/dashboard`, providing live monitoring and interactive testing tools.
+
+### Live CDC Stream and Simulation Studio
+Real-time Server-Sent Events (SSE) feed displaying decoded WAL events, committed transaction boundaries, active LSN positions, and instant simulation triggers.
+
+![Live CDC Stream Feed](docs/images/web-live-stream.png)
+
+### Discovered Schema Catalog and Evolution Timeline
+Live catalog of discovered tables, columns, primary keys, and PostgreSQL OIDs, paired with an audit timeline of schema changes (`ALTER TABLE`).
+
+![Schema Catalog and Evolution](docs/images/web-schema-catalog.png)
+
+### Dead Letter Queue (DLQ) Studio
+Inspect delivery errors, review failure reasons and target destinations, and trigger individual or bulk redrives without stalling replication.
+
+![Dead Letter Queue Studio](docs/images/web-dlq-studio.png)
+
+### Transformation and PII Masking Sandbox
+Test in-flight field masking rules and payload sanitization side by side before routing records to downstream message brokers or webhooks.
+
+![PII Masking and Transformation Sandbox](docs/images/web-rule-sandbox.png)
 
 ## Core capabilities
 

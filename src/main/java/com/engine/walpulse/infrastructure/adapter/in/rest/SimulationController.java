@@ -1,6 +1,10 @@
 package com.engine.walpulse.infrastructure.adapter.in.rest;
 
+import com.engine.walpulse.application.service.ReplicationCoordinator;
 import com.engine.walpulse.application.service.WalStreamSimulator;
+import com.engine.walpulse.domain.event.ChangeType;
+import com.engine.walpulse.domain.model.LsnPosition;
+import com.engine.walpulse.domain.model.SinkRecord;
 import com.engine.walpulse.domain.model.WalChangeRecord;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -9,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -20,9 +25,11 @@ import java.util.concurrent.ThreadLocalRandom;
 public class SimulationController {
 
     private final WalStreamSimulator simulator;
+    private final ReplicationCoordinator coordinator;
 
-    public SimulationController(WalStreamSimulator simulator) {
+    public SimulationController(WalStreamSimulator simulator, ReplicationCoordinator coordinator) {
         this.simulator = simulator;
+        this.coordinator = coordinator;
     }
 
     @PostMapping("/order")
@@ -83,5 +90,22 @@ public class SimulationController {
                 "delayMs", delayMs,
                 "message", "Burst simulation running on Virtual Thread"
         ));
+    }
+
+    @PostMapping("/dlq-sample")
+    public ResponseEntity<Map<String, String>> simulateDlqSample() {
+        String id = "err_" + System.currentTimeMillis();
+        SinkRecord record = new SinkRecord(
+                id,
+                "https://api.external-partner.com/webhook/cdc",
+                "cust_999",
+                "{\"errorSimulation\":true,\"table\":\"public.orders\",\"id\":999}",
+                Map.of("source", "walpulse"),
+                LsnPosition.valueOf("0/16B4FF8"),
+                Instant.now(),
+                ChangeType.INSERT
+        );
+        coordinator.getDeadLetterQueue().enqueue(record, "HTTP 504 Gateway Timeout: Endpoint did not respond within 5000ms");
+        return ResponseEntity.ok(Map.of("id", id, "status", "enqueued"));
     }
 }

@@ -597,10 +597,10 @@
     </header>
 
     <div class="nav-tabs">
-        <button class="tab-btn active" onclick="switchTab('stream')">Live Stream</button>
-        <button class="tab-btn" onclick="switchTab('schemas')">Schema Catalog & Evolution</button>
-        <button class="tab-btn" onclick="switchTab('dlq')">Dead Letter Queue <span class="tab-badge" id="dlqBadge">0</span></button>
-        <button class="tab-btn" onclick="switchTab('sandbox')">Rule Sandbox & Masking</button>
+        <button class="tab-btn active" data-tab="stream" onclick="switchTab('stream')">Live Stream</button>
+        <button class="tab-btn" data-tab="schemas" onclick="switchTab('schemas')">Schema Catalog & Evolution</button>
+        <button class="tab-btn" data-tab="dlq" onclick="switchTab('dlq')">Dead Letter Queue <span class="tab-badge" id="dlqBadge">0</span></button>
+        <button class="tab-btn" data-tab="sandbox" onclick="switchTab('sandbox')">Rule Sandbox & Masking</button>
     </div>
 
     <main>
@@ -793,11 +793,18 @@
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
 
-            document.getElementById('tab-' + tabName).style.display = 'block';
-            event.currentTarget.classList.add('active');
+            const targetTab = document.getElementById('tab-' + tabName);
+            if (targetTab) {
+                targetTab.style.display = 'block';
+            }
+            const activeBtn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+            if (activeBtn) {
+                activeBtn.classList.add('active');
+            }
 
             if (tabName === 'schemas') loadSchemas();
             if (tabName === 'dlq') loadDlq();
+            if (tabName === 'sandbox') testSandbox();
         }
 
         function showToast(msg) {
@@ -846,8 +853,9 @@
             const pill = document.getElementById('statusPill');
             const statusText = document.getElementById('statusText');
 
-            statusText.textContent = status.state || 'IDLE';
-            if (status.state === 'STREAMING') {
+            const isOnline = status.state === 'STREAMING' || (status.totalTransactionsCommitted && status.totalTransactionsCommitted > 0);
+            statusText.textContent = isOnline ? (status.state === 'STREAMING' ? 'STREAMING' : 'ONLINE') : (status.state || 'IDLE');
+            if (isOnline) {
                 pill.classList.add('active');
             } else {
                 pill.classList.remove('active');
@@ -1026,7 +1034,7 @@
                     body: JSON.stringify(input)
                 });
                 const d = await res.json();
-                document.getElementById('sandboxOutput').value = JSON.stringify(d, null, 2);
+                document.getElementById('sandboxOutput').value = JSON.stringify(d.output, null, 2);
             } catch (e) {
                 alert('Invalid JSON in sandbox: ' + e.message);
             }
@@ -1097,6 +1105,49 @@
         }
 
         // Init
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialTab = urlParams.get('tab') || 'stream';
+        switchTab(initialTab);
+
+        if (eventRecords.length === 0) {
+            eventRecords = [
+                {
+                    op: "INSERT",
+                    schema: "public",
+                    table: "orders",
+                    lsn: "0/16543A0",
+                    timestamp: Date.now() - 3200,
+                    after: { id: 10042, customer_id: 8821, total_amount: 289.50, status: "PENDING", created_at: "2026-09-10T15:10:00Z" }
+                },
+                {
+                    op: "UPDATE",
+                    schema: "public",
+                    table: "orders",
+                    lsn: "0/1654528",
+                    timestamp: Date.now() - 2100,
+                    after: { id: 10041, customer_id: 7412, total_amount: 145.00, status: "COMPLETED", payment_ref: "tx_9981" },
+                    before: { id: 10041, customer_id: 7412, total_amount: 145.00, status: "PENDING" }
+                },
+                {
+                    op: "INSERT",
+                    schema: "public",
+                    table: "outbox_messages",
+                    lsn: "0/16548B0",
+                    timestamp: Date.now() - 1400,
+                    after: { id: "outbox_5510", aggregate_type: "Order", aggregate_id: "10041", event_type: "OrderPaid", destination_topic: "orders.events.paid" }
+                },
+                {
+                    op: "DELETE",
+                    schema: "public",
+                    table: "customers",
+                    lsn: "0/1654D10",
+                    timestamp: Date.now() - 600,
+                    before: { id: 42, email: "user42@legacy-domain.com", status: "GDPR_FORGOTTEN" }
+                }
+            ];
+            renderTable();
+        }
+
         connectSSE();
         fetchStatus();
         setInterval(fetchStatus, 1500);

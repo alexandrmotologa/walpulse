@@ -50,6 +50,14 @@ public final class LsnPosition implements Comparable<LsnPosition> {
         return value;
     }
 
+    public long getValue() {
+        return value;
+    }
+
+    public String getFormatted() {
+        return asString();
+    }
+
     /**
      * Formats LSN into the standard PostgreSQL format: "HIGH/LOW".
      */
