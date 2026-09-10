@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/logo.png?raw=true" alt="WalPulse Logo" width="130" style="border-radius: 24px;" />
+  <img src="docs/images/logo.png?raw=true" alt="WalPulse Logo" width="140" height="140" />
 </p>
 
 <h1 align="center">WalPulse</h1>
