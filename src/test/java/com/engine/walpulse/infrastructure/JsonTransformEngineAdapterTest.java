@@ -65,6 +65,39 @@ class JsonTransformEngineAdapterTest {
     }
 
     @Test
+    @DisplayName("Should route outbox pattern tables directly to destination_topic and unwrap payload")
+    void testTransactionalOutboxRouting() {
+        String eventPayload = "{\"orderId\":\"ord_999\",\"status\":\"SHIPPED\",\"items\":[{\"sku\":\"ITEM-1\",\"qty\":2}]}";
+
+        WalChangeRecord outboxRecord = new WalChangeRecord(
+                1003L,
+                Instant.now(),
+                LsnPosition.valueOf("0/16B4FC5"),
+                ChangeType.INSERT,
+                "public",
+                "outbox_messages",
+                List.of(),
+                List.of(
+                        ColumnValue.of("id", 2950, "uuid", "d3b07384-d113-40a2-990a-c21d8b9ffcb9", true),
+                        ColumnValue.of("aggregate_type", 25, "text", "Order", false),
+                        ColumnValue.of("aggregate_id", 25, "text", "ord_999", false),
+                        ColumnValue.of("destination_topic", 25, "text", "orders.v1.events", false),
+                        ColumnValue.of("payload", 3802, "jsonb", eventPayload, false)
+                ),
+                java.util.Map.of()
+        );
+
+        Optional<SinkRecord> sinkRecordOpt = transformer.transform(outboxRecord);
+        assertThat(sinkRecordOpt).isPresent();
+
+        SinkRecord sinkRecord = sinkRecordOpt.get();
+        assertThat(sinkRecord.destination()).isEqualTo("orders.v1.events");
+        assertThat(sinkRecord.partitionKey()).isEqualTo("ord_999");
+        assertThat(sinkRecord.payloadJson()).contains("\"orderId\":\"ord_999\"");
+        assertThat(sinkRecord.payloadJson()).contains("\"status\":\"SHIPPED\"");
+    }
+
+    @Test
     @DisplayName("Should filter out tables matching exclude list")
     void testExcludeTableFilter() {
         WalChangeRecord record = new WalChangeRecord(

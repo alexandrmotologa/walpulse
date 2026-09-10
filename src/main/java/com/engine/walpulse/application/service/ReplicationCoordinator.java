@@ -3,13 +3,16 @@ package com.engine.walpulse.application.service;
 import com.engine.walpulse.application.dto.WalPulseProperties;
 import com.engine.walpulse.domain.event.ReplicationEvent;
 import com.engine.walpulse.domain.event.ReplicationState;
+import com.engine.walpulse.domain.model.DlqRecord;
 import com.engine.walpulse.domain.model.LsnPosition;
 import com.engine.walpulse.domain.model.ReplicationStatus;
 import com.engine.walpulse.domain.model.SinkRecord;
 import com.engine.walpulse.domain.model.WalChangeRecord;
 import com.engine.walpulse.domain.port.in.GetStreamStatusUseCase;
+import com.engine.walpulse.domain.port.in.RedriveDlqUseCase;
 import com.engine.walpulse.domain.port.in.StartReplicationUseCase;
 import com.engine.walpulse.domain.port.in.StopReplicationUseCase;
+import com.engine.walpulse.domain.port.out.DeadLetterQueuePort;
 import com.engine.walpulse.domain.port.out.EventSinkPort;
 import com.engine.walpulse.domain.port.out.LogicalReplicationPort;
 import com.engine.walpulse.domain.port.out.TransformEnginePort;
@@ -25,9 +28,9 @@ import java.util.function.Consumer;
 
 /**
  * Orchestrates the end-to-end Change Data Capture streaming pipeline.
- * Runs on a dedicated Java 21 Virtual Thread and relies strictly on domain ports.
+ * Runs on a dedicated Java 21 Virtual Thread and supports DLQ and simulation.
  */
-public class ReplicationCoordinator implements StartReplicationUseCase, StopReplicationUseCase, GetStreamStatusUseCase {
+public class ReplicationCoordinator implements StartReplicationUseCase, StopReplicationUseCase, GetStreamStatusUseCase, RedriveDlqUseCase {
 
     private static final Logger log = LoggerFactory.getLogger(ReplicationCoordinator.class);
 
@@ -36,6 +39,7 @@ public class ReplicationCoordinator implements StartReplicationUseCase, StopRepl
     private final EventSinkPort eventSink;
     private final SchemaCacheService schemaCache;
     private final LsnTrackerService lsnTracker;
+    private final DeadLetterQueuePort deadLetterQueue;
     private final WalPulseProperties properties;
 
     private final List<Consumer<WalChangeRecord>> liveEventListeners = new CopyOnWriteArrayList<>();
@@ -52,6 +56,7 @@ public class ReplicationCoordinator implements StartReplicationUseCase, StopRepl
             EventSinkPort eventSink,
             SchemaCacheService schemaCache,
             LsnTrackerService lsnTracker,
+            DeadLetterQueuePort deadLetterQueue,
             WalPulseProperties properties
     ) {
         this.replicationPort = replicationPort;
@@ -59,6 +64,7 @@ public class ReplicationCoordinator implements StartReplicationUseCase, StopRepl
         this.eventSink = eventSink;
         this.schemaCache = schemaCache;
         this.lsnTracker = lsnTracker;
+        this.deadLetterQueue = deadLetterQueue;
         this.properties = properties;
     }
 
@@ -121,12 +127,52 @@ public class ReplicationCoordinator implements StartReplicationUseCase, StopRepl
         );
     }
 
+    @Override
+    public boolean redrive(String dlqId) {
+        Optional<DlqRecord> recordOpt = deadLetterQueue.findById(dlqId);
+        if (recordOpt.isEmpty()) {
+            return false;
+        }
+
+        DlqRecord dlqRecord = recordOpt.get();
+        try {
+            eventSink.send(dlqRecord.sinkRecord()).join();
+            deadLetterQueue.remove(dlqId);
+            log.info("Successfully redriven DLQ event {}", dlqId);
+            return true;
+        } catch (Exception e) {
+            log.warn("Redrive failed for DLQ event {}: {}", dlqId, e.getMessage());
+            deadLetterQueue.enqueue(dlqRecord.sinkRecord(), "Redrive failed: " + e.getMessage());
+            return false;
+        }
+    }
+
+    @Override
+    public int redriveAll() {
+        List<DlqRecord> all = deadLetterQueue.listAll();
+        int successCount = 0;
+        for (DlqRecord record : all) {
+            if (redrive(record.id())) {
+                successCount++;
+            }
+        }
+        return successCount;
+    }
+
+    public void processSimulatedEvent(ReplicationEvent event) {
+        processEvent(event);
+    }
+
     public void registerLiveListener(Consumer<WalChangeRecord> listener) {
         liveEventListeners.add(listener);
     }
 
     public void unregisterLiveListener(Consumer<WalChangeRecord> listener) {
         liveEventListeners.remove(listener);
+    }
+
+    public DeadLetterQueuePort getDeadLetterQueue() {
+        return deadLetterQueue;
     }
 
     private void runStreamingLoop() {
@@ -145,7 +191,7 @@ public class ReplicationCoordinator implements StartReplicationUseCase, StopRepl
                 if (eventOpt.isPresent()) {
                     processEvent(eventOpt.get());
                 } else {
-                    // Small sleep to yield virtual thread when no WAL bytes are waiting
+                    // Yield virtual thread when no WAL bytes are waiting
                     TimeUnit.MILLISECONDS.sleep(10);
                 }
 
@@ -194,7 +240,10 @@ public class ReplicationCoordinator implements StartReplicationUseCase, StopRepl
                                 lsnTracker.incrementEvents();
                             })
                             .exceptionally(ex -> {
-                                log.error("Failed to deliver record {} to sink", record.lsn(), ex);
+                                log.error("Failed to deliver record {} to sink, routing to DLQ", record.lsn(), ex);
+                                deadLetterQueue.enqueue(sinkRecord, ex.getMessage());
+                                // Advance LSN so replication doesn't stall indefinitely on poisoned message
+                                lsnTracker.onLsnFlushed(record.lsn());
                                 return null;
                             });
                 } else {

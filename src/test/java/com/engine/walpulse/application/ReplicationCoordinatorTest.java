@@ -12,9 +12,11 @@ import com.engine.walpulse.domain.model.LsnPosition;
 import com.engine.walpulse.domain.model.ReplicationStatus;
 import com.engine.walpulse.domain.model.SinkRecord;
 import com.engine.walpulse.domain.model.WalChangeRecord;
+import com.engine.walpulse.domain.port.out.DeadLetterQueuePort;
 import com.engine.walpulse.domain.port.out.EventSinkPort;
 import com.engine.walpulse.domain.port.out.LogicalReplicationPort;
 import com.engine.walpulse.domain.port.out.TransformEnginePort;
+import com.engine.walpulse.infrastructure.adapter.out.sink.MemoryDeadLetterQueueAdapter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,7 @@ class ReplicationCoordinatorTest {
     private EventSinkPort eventSink;
     private SchemaCacheService schemaCache;
     private LsnTrackerService lsnTracker;
+    private DeadLetterQueuePort deadLetterQueue;
     private WalPulseProperties properties;
     private ReplicationCoordinator coordinator;
 
@@ -50,6 +53,7 @@ class ReplicationCoordinatorTest {
         eventSink = Mockito.mock(EventSinkPort.class);
         schemaCache = new SchemaCacheService();
         lsnTracker = new LsnTrackerService();
+        deadLetterQueue = new MemoryDeadLetterQueueAdapter();
         properties = new WalPulseProperties();
 
         when(eventSink.send(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -61,6 +65,7 @@ class ReplicationCoordinatorTest {
                 eventSink,
                 schemaCache,
                 lsnTracker,
+                deadLetterQueue,
                 properties
         );
     }
@@ -118,6 +123,57 @@ class ReplicationCoordinatorTest {
 
         ReplicationStatus status = coordinator.getStatus();
         assertThat(status.lastReceivedLsn()).isEqualTo(lsn);
+    }
+
+    @Test
+    @DisplayName("Should route failed sink delivery to DLQ and support successful redrive")
+    void testDlqAndRedrive() throws InterruptedException {
+        LsnPosition lsn = LsnPosition.valueOf("0/16B4FE5");
+        WalChangeRecord record = new WalChangeRecord(
+                2005L,
+                Instant.now(),
+                lsn,
+                ChangeType.INSERT,
+                "public",
+                "orders",
+                List.of(),
+                List.of(ColumnValue.of("id", 23, "int4", "102", true)),
+                java.util.Map.of()
+        );
+
+        SinkRecord sinkRecord = new SinkRecord(
+                "2005:0/16B4FE5",
+                "cdc.public.orders",
+                "102",
+                "{\"id\":102}",
+                java.util.Map.of(),
+                lsn,
+                Instant.now(),
+                ChangeType.INSERT
+        );
+
+        when(transformEngine.transform(record)).thenReturn(Optional.of(sinkRecord));
+        // Configure sink to fail initially
+        when(eventSink.send(sinkRecord)).thenReturn(CompletableFuture.failedFuture(new RuntimeException("Webhook HTTP 503 Service Unavailable")));
+
+        when(replicationPort.readNextEvent())
+                .thenReturn(Optional.of(new ReplicationEvent.DataChange(record)))
+                .thenReturn(Optional.empty());
+
+        coordinator.start();
+        TimeUnit.MILLISECONDS.sleep(200);
+        coordinator.stop();
+
+        // Verify record is in DLQ
+        assertThat(deadLetterQueue.size()).isEqualTo(1);
+        assertThat(deadLetterQueue.findById(sinkRecord.id())).isPresent();
+
+        // Now configure sink to succeed for redrive
+        when(eventSink.send(sinkRecord)).thenReturn(CompletableFuture.completedFuture(null));
+        boolean redriven = coordinator.redrive(sinkRecord.id());
+
+        assertThat(redriven).isTrue();
+        assertThat(deadLetterQueue.size()).isEqualTo(0);
     }
 
     @Test

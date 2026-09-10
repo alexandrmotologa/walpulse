@@ -7,17 +7,20 @@ import com.engine.walpulse.domain.model.SinkRecord;
 import com.engine.walpulse.domain.model.WalChangeRecord;
 import com.engine.walpulse.domain.port.out.TransformEnginePort;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 /**
- * Transforms WalChangeRecord instances into JSON envelopes, masking sensitive data and filtering tables.
+ * Transforms WalChangeRecord instances into JSON envelopes, masking sensitive data,
+ * filtering tables, and providing native Transactional Outbox routing.
  */
 public class JsonTransformEngineAdapter implements TransformEnginePort {
 
@@ -36,6 +39,14 @@ public class JsonTransformEngineAdapter implements TransformEnginePort {
         if (!properties.getFilter().isTableAllowed(record.schemaName(), record.tableName())) {
             log.trace("Table {}.{} excluded by filter rules", record.schemaName(), record.tableName());
             return Optional.empty();
+        }
+
+        // Check if table is a Transactional Outbox table
+        if (isOutboxTable(record.tableName())) {
+            Optional<SinkRecord> outboxRecord = handleOutboxPattern(record);
+            if (outboxRecord.isPresent()) {
+                return outboxRecord;
+            }
         }
 
         Map<String, Object> beforeMap = maskAndExtract(record.beforeColumns());
@@ -89,7 +100,75 @@ public class JsonTransformEngineAdapter implements TransformEnginePort {
         }
     }
 
-    private Map<String, Object> maskAndExtract(java.util.List<ColumnValue> columns) {
+    private boolean isOutboxTable(String tableName) {
+        if (tableName == null) return false;
+        String lower = tableName.toLowerCase();
+        return lower.contains("outbox");
+    }
+
+    private Optional<SinkRecord> handleOutboxPattern(WalChangeRecord record) {
+        if (record.operation() == ChangeType.DELETE) {
+            // Outbox cleanup deletes are typically ignored
+            return Optional.empty();
+        }
+
+        List<ColumnValue> cols = record.afterColumns();
+        String payloadStr = null;
+        String destinationTopic = null;
+        String aggregateId = null;
+
+        for (ColumnValue col : cols) {
+            String name = col.name().toLowerCase();
+            if (col.value() != null) {
+                if (name.equals("payload") || name.equals("event_payload") || name.equals("body")) {
+                    payloadStr = col.value().toString();
+                } else if (name.equals("destination") || name.equals("topic") || name.equals("destination_topic")) {
+                    destinationTopic = col.value().toString();
+                } else if (name.equals("aggregate_id") || name.equals("aggregateid") || name.equals("key")) {
+                    aggregateId = col.value().toString();
+                }
+            }
+        }
+
+        if (payloadStr != null) {
+            String targetDestination = destinationTopic != null ? destinationTopic :
+                    properties.getSink().getKafka().getTopicPrefix() + record.schemaName() + "." + record.tableName();
+            String partitionKey = aggregateId != null ? aggregateId : extractPartitionKey(record);
+
+            try {
+                // Ensure payload is valid JSON
+                JsonNode parsed = objectMapper.readTree(payloadStr);
+                String cleanPayload = objectMapper.writeValueAsString(parsed);
+
+                Map<String, String> headers = Map.of(
+                        "source", "walpulse-outbox",
+                        "operation", record.operation().name(),
+                        "table", record.fullTableName(),
+                        "lsn", record.lsn().asString()
+                );
+
+                SinkRecord sinkRecord = new SinkRecord(
+                        record.transactionId() + ":" + record.lsn().asString(),
+                        targetDestination,
+                        partitionKey,
+                        cleanPayload,
+                        headers,
+                        record.lsn(),
+                        record.commitTimestamp() != null ? record.commitTimestamp() : Instant.now(),
+                        record.operation()
+                );
+
+                return Optional.of(sinkRecord);
+
+            } catch (Exception e) {
+                log.warn("Failed to parse outbox payload as JSON, falling back to standard envelope", e);
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    private Map<String, Object> maskAndExtract(List<ColumnValue> columns) {
         Map<String, Object> map = new LinkedHashMap<>();
         if (columns == null) {
             return map;

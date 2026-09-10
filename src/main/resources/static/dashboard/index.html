@@ -3,19 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WalPulse — Zero-Polling PostgreSQL CDC Stream Monitor</title>
+    <title>WalPulse — Zero-Polling PostgreSQL CDC Stream Monitor & Studio</title>
     <style>
         :root {
             --bg-base: #0a0d14;
             --bg-card: rgba(18, 24, 38, 0.75);
             --bg-card-hover: rgba(26, 35, 54, 0.9);
             --border-subtle: rgba(255, 255, 255, 0.08);
-            --border-active: rgba(6, 182, 212, 0.4);
+            --border-active: rgba(6, 182, 212, 0.5);
             --accent-cyan: #06b6d4;
             --accent-emerald: #10b981;
             --accent-amber: #f59e0b;
             --accent-rose: #f43f5e;
             --accent-violet: #8b5cf6;
+            --accent-blue: #3b82f6;
             --text-main: #f3f4f6;
             --text-muted: #9ca3af;
             --text-dim: #6b7280;
@@ -43,10 +44,10 @@
         }
 
         header {
-            padding: 1.25rem 2rem;
+            padding: 1rem 2rem;
             border-bottom: 1px solid var(--border-subtle);
             backdrop-filter: blur(12px);
-            background: rgba(10, 13, 20, 0.8);
+            background: rgba(10, 13, 20, 0.85);
             position: sticky;
             top: 0;
             z-index: 50;
@@ -95,7 +96,7 @@
         .header-actions {
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: 0.85rem;
         }
 
         .status-pill {
@@ -162,6 +163,26 @@
             box-shadow: 0 0 20px rgba(6, 182, 212, 0.5);
         }
 
+        .btn-success {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent-emerald);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-success:hover {
+            background: rgba(16, 185, 129, 0.25);
+        }
+
+        .btn-warning {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--accent-amber);
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-warning:hover {
+            background: rgba(245, 158, 11, 0.25);
+        }
+
         .btn-danger {
             background: rgba(244, 63, 94, 0.15);
             color: var(--accent-rose);
@@ -172,15 +193,91 @@
             background: rgba(244, 63, 94, 0.25);
         }
 
+        /* Nav Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0 2rem;
+            background: rgba(10, 13, 20, 0.6);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .tab-btn {
+            padding: 0.75rem 1.25rem;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-main);
+        }
+
+        .tab-btn.active {
+            color: var(--accent-cyan);
+            border-bottom-color: var(--accent-cyan);
+        }
+
+        .tab-badge {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            font-size: 0.7rem;
+            padding: 0.1rem 0.45rem;
+            border-radius: 9999px;
+            font-family: var(--font-mono);
+        }
+
+        .tab-badge.badge-alert {
+            background: var(--accent-rose);
+            color: white;
+        }
+
         main {
             flex: 1;
-            padding: 2rem;
+            padding: 1.5rem 2rem;
             max-width: 1440px;
             margin: 0 auto;
             width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 1.75rem;
+            gap: 1.5rem;
+        }
+
+        /* Simulation Studio Bar */
+        .simulation-bar {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.08), rgba(139, 92, 246, 0.08));
+            border: 1px solid var(--border-active);
+            border-radius: 12px;
+            padding: 0.85rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .sim-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--accent-cyan);
+        }
+
+        .sim-buttons {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
         }
 
         /* Metric Cards Grid */
@@ -231,8 +328,8 @@
             margin-top: 0.4rem;
         }
 
-        /* Feed Section */
-        .feed-section {
+        /* Section Container */
+        .section-container {
             background: var(--bg-card);
             border: 1px solid var(--border-subtle);
             border-radius: 14px;
@@ -243,8 +340,8 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
         }
 
-        .feed-toolbar {
-            padding: 1rem 1.5rem;
+        .toolbar {
+            padding: 0.85rem 1.25rem;
             border-bottom: 1px solid var(--border-subtle);
             display: flex;
             align-items: center;
@@ -254,44 +351,9 @@
             gap: 0.75rem;
         }
 
-        .feed-title {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-size: 0.95rem;
-            font-weight: 600;
-        }
-
-        .feed-counter {
-            font-size: 0.75rem;
-            color: var(--text-dim);
-            font-family: var(--font-mono);
-        }
-
-        .feed-controls {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .search-input {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-subtle);
-            border-radius: 8px;
-            color: var(--text-main);
-            padding: 0.4rem 0.8rem;
-            font-size: 0.8rem;
-            outline: none;
-            width: 220px;
-        }
-
-        .search-input:focus {
-            border-color: var(--accent-cyan);
-        }
-
-        .feed-table-container {
+        .table-container {
             overflow-y: auto;
-            max-height: 520px;
+            max-height: 540px;
             flex: 1;
         }
 
@@ -303,7 +365,7 @@
         }
 
         th {
-            background: rgba(10, 13, 20, 0.9);
+            background: rgba(10, 13, 20, 0.95);
             color: var(--text-muted);
             font-weight: 600;
             padding: 0.85rem 1.25rem;
@@ -376,7 +438,7 @@
         }
 
         .json-preview {
-            max-width: 420px;
+            max-width: 380px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -388,6 +450,22 @@
 
         .json-preview:hover {
             color: var(--text-main);
+            text-decoration: underline;
+        }
+
+        .search-input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            color: var(--text-main);
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+            outline: none;
+            width: 220px;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent-cyan);
         }
 
         .empty-state {
@@ -396,8 +474,98 @@
             color: var(--text-dim);
         }
 
+        /* Schema & Sandbox Styles */
+        .schema-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.25rem;
+            padding: 1.25rem;
+        }
+
+        .schema-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            padding: 1rem;
+        }
+
+        .schema-card-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--accent-cyan);
+            font-family: var(--font-mono);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .column-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            margin-top: 0.5rem;
+        }
+
+        .column-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            padding: 0.3rem 0.5rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+            font-family: var(--font-mono);
+        }
+
+        .sandbox-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            padding: 1.5rem;
+        }
+
+        .sandbox-box {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .sandbox-box textarea {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            color: var(--text-main);
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            padding: 1rem;
+            height: 240px;
+            outline: none;
+            resize: none;
+        }
+
+        .sandbox-box textarea:focus {
+            border-color: var(--accent-cyan);
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: rgba(18, 24, 38, 0.95);
+            border: 1px solid var(--accent-cyan);
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            font-size: 0.85rem;
+            display: none;
+            z-index: 999;
+        }
+
         footer {
-            padding: 1.25rem 2rem;
+            padding: 1rem 2rem;
             border-top: 1px solid var(--border-subtle);
             text-align: center;
             color: var(--text-dim);
@@ -415,7 +583,7 @@
             </div>
             <div class="brand-text">
                 <h1>WalPulse</h1>
-                <p>PostgreSQL Logical Replication Stream Monitor</p>
+                <p>Zero-Polling PostgreSQL CDC Stream Monitor & Studio</p>
             </div>
         </div>
         <div class="header-actions">
@@ -428,112 +596,233 @@
         </div>
     </header>
 
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('stream')">Live Stream</button>
+        <button class="tab-btn" onclick="switchTab('schemas')">Schema Catalog & Evolution</button>
+        <button class="tab-btn" onclick="switchTab('dlq')">Dead Letter Queue <span class="tab-badge" id="dlqBadge">0</span></button>
+        <button class="tab-btn" onclick="switchTab('sandbox')">Rule Sandbox & Masking</button>
+    </div>
+
     <main>
-        <div class="metrics-grid">
-            <div class="metric-card">
-                <div class="metric-header">
-                    <span>LSN Lag</span>
-                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                </div>
-                <div class="metric-value" id="lagMetric">0 B</div>
-                <div class="metric-sub" id="lagDetails">Lag behind WAL master</div>
+        <!-- SIMULATION BAR -->
+        <div class="simulation-bar">
+            <div class="sim-title">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <span>Interactive Simulation Studio</span>
             </div>
-            <div class="metric-card">
-                <div class="metric-header">
-                    <span>Events Processed</span>
-                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                </div>
-                <div class="metric-value" id="eventsMetric">0</div>
-                <div class="metric-sub" id="epsMetric">0 events/sec</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-header">
-                    <span>Transactions</span>
-                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                </div>
-                <div class="metric-value" id="commitsMetric">0</div>
-                <div class="metric-sub">Committed transaction boundaries</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-header">
-                    <span>Current LSN</span>
-                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                </div>
-                <div class="metric-value" id="lsnMetric">0/0</div>
-                <div class="metric-sub" id="flushedLsnSub">Flushed: 0/0</div>
+            <div class="sim-buttons">
+                <button class="btn btn-success" onclick="simOrder()">+ Order Insert</button>
+                <button class="btn btn-warning" onclick="simPayment()">+ Payment Update</button>
+                <button class="btn btn-danger" onclick="simDelete()">+ Customer Delete</button>
+                <button class="btn" onclick="simOutbox()">+ Outbox Event</button>
+                <button class="btn" onclick="simSchema()">+ Evolve Schema (ALTER TABLE)</button>
+                <button class="btn btn-primary" onclick="simBurst(50)">Run Burst (50 EPS)</button>
             </div>
         </div>
 
-        <div class="feed-section">
-            <div class="feed-toolbar">
-                <div class="feed-title">
-                    <span>Live Change Log</span>
-                    <span class="feed-counter" id="feedCount">(0 records)</span>
+        <!-- TAB 1: LIVE STREAM -->
+        <div id="tab-stream">
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span>LSN Lag</span>
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    </div>
+                    <div class="metric-value" id="lagMetric">0 B</div>
+                    <div class="metric-sub" id="lagDetails">Lag behind WAL master</div>
                 </div>
-                <div class="feed-controls">
-                    <input type="text" class="search-input" id="tableFilter" placeholder="Filter by table or op..." oninput="renderTable()">
-                    <button class="btn" onclick="clearFeed()">Clear</button>
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span>Events Processed</span>
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    </div>
+                    <div class="metric-value" id="eventsMetric">0</div>
+                    <div class="metric-sub" id="epsMetric">0 events/sec</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span>Transactions</span>
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <div class="metric-value" id="commitsMetric">0</div>
+                    <div class="metric-sub">Committed transaction boundaries</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span>Current LSN</span>
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <div class="metric-value" id="lsnMetric">0/0</div>
+                    <div class="metric-sub" id="flushedLsnSub">Flushed: 0/0</div>
                 </div>
             </div>
-            <div class="feed-table-container">
-                <table id="eventsTable">
-                    <thead>
-                        <tr>
-                            <th>Operation</th>
-                            <th>Table</th>
-                            <th>LSN</th>
-                            <th>Time</th>
-                            <th>Payload Data</th>
-                        </tr>
-                    </thead>
-                    <tbody id="eventsBody">
-                        <tr class="empty-state-row">
-                            <td colspan="5" class="empty-state">Waiting for WAL replication stream events...</td>
-                        </tr>
-                    </tbody>
-                </table>
+
+            <div class="section-container" style="margin-top: 1.5rem;">
+                <div class="toolbar">
+                    <div style="font-size: 0.95rem; font-weight: 600;">
+                        <span>Live CDC Stream Feed</span>
+                        <span style="font-size: 0.75rem; color: var(--text-dim); margin-left: 0.5rem;" id="feedCount">(0 records)</span>
+                    </div>
+                    <div style="display: flex; gap: 0.75rem;">
+                        <input type="text" class="search-input" id="tableFilter" placeholder="Filter by table or op..." oninput="renderTable()">
+                        <button class="btn" onclick="clearFeed()">Clear</button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Operation</th>
+                                <th>Table</th>
+                                <th>LSN</th>
+                                <th>Time</th>
+                                <th>Payload Data</th>
+                            </tr>
+                        </thead>
+                        <tbody id="eventsBody">
+                            <tr><td colspan="5" class="empty-state">Waiting for WAL replication stream events...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: SCHEMA CATALOG -->
+        <div id="tab-schemas" style="display: none;">
+            <div class="section-container">
+                <div class="toolbar">
+                    <span style="font-weight: 600;">Discovered Table Schemas</span>
+                    <button class="btn" onclick="loadSchemas()">Refresh</button>
+                </div>
+                <div class="schema-grid" id="schemaCards">
+                    <div class="empty-state">No tables registered yet. Trigger a change or simulation.</div>
+                </div>
+            </div>
+
+            <div class="section-container" style="margin-top: 1.5rem;">
+                <div class="toolbar">
+                    <span style="font-weight: 600;">Schema Evolution Timeline (ALTER TABLE)</span>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Table</th>
+                                <th>Timestamp</th>
+                                <th>Change Description</th>
+                            </tr>
+                        </thead>
+                        <tbody id="evolutionBody">
+                            <tr><td colspan="3" class="empty-state">No schema migrations detected</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: DEAD LETTER QUEUE -->
+        <div id="tab-dlq" style="display: none;">
+            <div class="section-container">
+                <div class="toolbar">
+                    <span style="font-weight: 600;">Dead Letter Queue (Failed Deliveries)</span>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-warning" onclick="redriveAllDlq()">Redrive All</button>
+                        <button class="btn btn-danger" onclick="clearDlq()">Clear All</button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Destination</th>
+                                <th>Failed At</th>
+                                <th>Error Reason</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dlqBody">
+                            <tr><td colspan="5" class="empty-state">Dead Letter Queue is empty. All deliveries healthy.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: RULE SANDBOX -->
+        <div id="tab-sandbox" style="display: none;">
+            <div class="section-container">
+                <div class="toolbar">
+                    <span style="font-weight: 600;">In-Flight Transformation & PII Masking Sandbox</span>
+                    <button class="btn btn-primary" onclick="testSandbox()">Test Masking</button>
+                </div>
+                <div class="sandbox-container">
+                    <div class="sandbox-box">
+                        <label style="font-size: 0.8rem; color: var(--text-muted);">Sample Input JSON:</label>
+                        <textarea id="sandboxInput">{
+  "_schema": "public",
+  "_table": "users",
+  "id": 42,
+  "email": "alexander@example.com",
+  "password": "my_super_secret_password",
+  "credit_card": "4111-2222-3333-4444",
+  "role": "ADMIN"
+}</textarea>
+                    </div>
+                    <div class="sandbox-box">
+                        <label style="font-size: 0.8rem; color: var(--text-muted);">Transformed & Masked Output:</label>
+                        <textarea id="sandboxOutput" readonly placeholder="Click 'Test Masking' to view transformed payload..."></textarea>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
 
+    <div class="toast" id="toast"></div>
+
     <footer>
-        WalPulse v1.0.0 &bull; Native PostgreSQL pgoutput Zero-Polling CDC Engine
+        WalPulse v1.0.0 &bull; PostgreSQL native pgoutput Zero-Polling CDC Engine & Studio
     </footer>
 
     <script>
         let eventSource = null;
         let eventRecords = [];
         let previousEventsCount = 0;
-        let epsHistory = 0;
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
+
+            document.getElementById('tab-' + tabName).style.display = 'block';
+            event.currentTarget.classList.add('active');
+
+            if (tabName === 'schemas') loadSchemas();
+            if (tabName === 'dlq') loadDlq();
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.display = 'block';
+            setTimeout(() => t.style.display = 'none', 3000);
+        }
 
         function connectSSE() {
-            if (eventSource) {
-                eventSource.close();
-            }
-
+            if (eventSource) eventSource.close();
             eventSource = new EventSource('/api/v1/stream/live');
-
-            eventSource.addEventListener('connected', (e) => {
-                console.log('SSE connected:', e.data);
-            });
 
             eventSource.addEventListener('wal_change', (e) => {
                 try {
                     const record = JSON.parse(e.data);
                     eventRecords.unshift(record);
-                    if (eventRecords.length > 500) {
-                        eventRecords.pop();
-                    }
+                    if (eventRecords.length > 500) eventRecords.pop();
                     renderTable();
                 } catch (err) {
                     console.error('Error parsing change event:', err);
                 }
             });
 
-            eventSource.onerror = (err) => {
-                console.warn('SSE disconnected, retrying in 3s...', err);
-                setTimeout(connectSSE, 3000);
-            };
+            eventSource.onerror = () => setTimeout(connectSSE, 3000);
         }
 
         async function fetchStatus() {
@@ -543,9 +832,14 @@
                     const data = await res.json();
                     updateStatusUI(data);
                 }
-            } catch (err) {
-                console.debug('Failed to poll status:', err);
-            }
+                const dlqRes = await fetch('/api/v1/dlq');
+                if (dlqRes.ok) {
+                    const dlqData = await dlqRes.json();
+                    const badge = document.getElementById('dlqBadge');
+                    badge.textContent = dlqData.length;
+                    badge.className = 'tab-badge' + (dlqData.length > 0 ? ' badge-alert' : '');
+                }
+            } catch (err) {}
         }
 
         function updateStatusUI(status) {
@@ -621,6 +915,159 @@
             }).join('');
         }
 
+        async function loadSchemas() {
+            try {
+                const res = await fetch('/api/v1/schemas');
+                const data = await res.json();
+                const container = document.getElementById('schemaCards');
+
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No schemas registered yet. Trigger a simulation!</div>';
+                } else {
+                    container.innerHTML = data.map(s => `
+                        <div class="schema-card">
+                            <div class="schema-card-title">
+                                <span>${escapeHtml(s.schemaName)}.${escapeHtml(s.tableName)}</span>
+                                <span class="badge" style="font-size: 0.65rem;">OID ${s.relationOid}</span>
+                            </div>
+                            <ul class="column-list">
+                                ${(s.columns || []).map(c => `
+                                    <li class="column-item">
+                                        <span>${c.isKey ? '🔑 ' : ''}${escapeHtml(c.name)}</span>
+                                        <span style="color: var(--text-dim);">${c.typeOid}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    `).join('');
+                }
+
+                const histRes = await fetch('/api/v1/schemas/history');
+                const histData = await histRes.json();
+                const hbody = document.getElementById('evolutionBody');
+                if (histData.length === 0) {
+                    hbody.innerHTML = '<tr><td colspan="3" class="empty-state">No schema migrations detected</td></tr>';
+                } else {
+                    hbody.innerHTML = histData.map(h => `
+                        <tr>
+                            <td class="table-code">${escapeHtml(h.schemaName)}.${escapeHtml(h.tableName)}</td>
+                            <td class="time-code">${new Date(h.timestamp).toLocaleTimeString()}</td>
+                            <td>${escapeHtml(h.description)}</td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function loadDlq() {
+            try {
+                const res = await fetch('/api/v1/dlq');
+                const data = await res.json();
+                const tbody = document.getElementById('dlqBody');
+
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Dead Letter Queue is empty. All deliveries healthy.</td></tr>';
+                } else {
+                    tbody.innerHTML = data.map(d => `
+                        <tr>
+                            <td class="lsn-code">${escapeHtml(d.id)}</td>
+                            <td class="table-code">${escapeHtml(d.sinkRecord.destination)}</td>
+                            <td class="time-code">${new Date(d.failedAt).toLocaleTimeString()}</td>
+                            <td style="color: var(--accent-rose); font-size: 0.75rem;">${escapeHtml(d.errorReason)}</td>
+                            <td>
+                                <button class="btn btn-warning" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;" onclick="redriveDlq('${escapeHtml(d.id)}')">Redrive</button>
+                                <button class="btn btn-danger" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;" onclick="deleteDlq('${escapeHtml(d.id)}')">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function redriveDlq(id) {
+            await fetch(`/api/v1/dlq/${id}/redrive`, { method: 'POST' });
+            showToast('Redriven DLQ event ' + id);
+            loadDlq();
+            fetchStatus();
+        }
+
+        async function deleteDlq(id) {
+            await fetch(`/api/v1/dlq/${id}`, { method: 'DELETE' });
+            showToast('Removed DLQ event ' + id);
+            loadDlq();
+            fetchStatus();
+        }
+
+        async function redriveAllDlq() {
+            const res = await fetch('/api/v1/dlq/redrive-all', { method: 'POST' });
+            const d = await res.json();
+            showToast(`Redriven ${d.redrivenCount} events`);
+            loadDlq();
+            fetchStatus();
+        }
+
+        async function clearDlq() {
+            await fetch('/api/v1/dlq', { method: 'DELETE' });
+            showToast('Cleared DLQ');
+            loadDlq();
+            fetchStatus();
+        }
+
+        async function testSandbox() {
+            try {
+                const input = JSON.parse(document.getElementById('sandboxInput').value);
+                const res = await fetch('/api/v1/config/sandbox', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(input)
+                });
+                const d = await res.json();
+                document.getElementById('sandboxOutput').value = JSON.stringify(d, null, 2);
+            } catch (e) {
+                alert('Invalid JSON in sandbox: ' + e.message);
+            }
+        }
+
+        // Simulators
+        async function simOrder() {
+            await fetch('/api/v1/simulate/order', { method: 'POST' });
+            showToast('Simulated Order Created (INSERT)');
+            fetchStatus();
+        }
+
+        async function simPayment() {
+            await fetch('/api/v1/simulate/payment', { method: 'POST' });
+            showToast('Simulated Payment Completed (UPDATE)');
+            fetchStatus();
+        }
+
+        async function simDelete() {
+            await fetch('/api/v1/simulate/delete', { method: 'POST' });
+            showToast('Simulated Customer Deletion (DELETE)');
+            fetchStatus();
+        }
+
+        async function simOutbox() {
+            await fetch('/api/v1/simulate/outbox', { method: 'POST' });
+            showToast('Simulated Outbox Message Routed to Topic');
+            fetchStatus();
+        }
+
+        async function simSchema() {
+            await fetch('/api/v1/simulate/schema?column=loyalty_tier_' + Math.floor(Math.random() * 100), { method: 'POST' });
+            showToast('Simulated Schema Evolution (ALTER TABLE ADD COLUMN)');
+            fetchStatus();
+        }
+
+        async function simBurst(count) {
+            await fetch(`/api/v1/simulate/burst?count=${count}&delayMs=40`, { method: 'POST' });
+            showToast(`Launched burst traffic of ${count} events!`);
+        }
+
         function escapeHtml(str) {
             if (!str) return '';
             return String(str).replace(/[&<>"']/g, m => ({
@@ -638,27 +1085,21 @@
         }
 
         async function startStream() {
-            try {
-                await fetch('/api/v1/replication/start', { method: 'POST' });
-                fetchStatus();
-            } catch (err) {
-                console.error(err);
-            }
+            await fetch('/api/v1/replication/start', { method: 'POST' });
+            showToast('Replication coordinator started');
+            fetchStatus();
         }
 
         async function stopStream() {
-            try {
-                await fetch('/api/v1/replication/stop', { method: 'POST' });
-                fetchStatus();
-            } catch (err) {
-                console.error(err);
-            }
+            await fetch('/api/v1/replication/stop', { method: 'POST' });
+            showToast('Replication coordinator stopped');
+            fetchStatus();
         }
 
         // Init
         connectSSE();
         fetchStatus();
-        setInterval(fetchStatus, 2000);
+        setInterval(fetchStatus, 1500);
     </script>
 </body>
 </html>

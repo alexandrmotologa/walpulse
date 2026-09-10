@@ -4,6 +4,8 @@ import com.engine.walpulse.application.dto.WalPulseProperties;
 import com.engine.walpulse.application.service.LsnTrackerService;
 import com.engine.walpulse.application.service.ReplicationCoordinator;
 import com.engine.walpulse.application.service.SchemaCacheService;
+import com.engine.walpulse.application.service.WalStreamSimulator;
+import com.engine.walpulse.domain.port.out.DeadLetterQueuePort;
 import com.engine.walpulse.domain.port.out.EventSinkPort;
 import com.engine.walpulse.domain.port.out.LogicalReplicationPort;
 import com.engine.walpulse.domain.port.out.TransformEnginePort;
@@ -12,6 +14,7 @@ import com.engine.walpulse.infrastructure.adapter.out.postgres.PgOutputDecoder;
 import com.engine.walpulse.infrastructure.adapter.out.sink.CompositeSinkAdapter;
 import com.engine.walpulse.infrastructure.adapter.out.sink.KafkaSinkAdapter;
 import com.engine.walpulse.infrastructure.adapter.out.sink.LoggingSinkAdapter;
+import com.engine.walpulse.infrastructure.adapter.out.sink.MemoryDeadLetterQueueAdapter;
 import com.engine.walpulse.infrastructure.adapter.out.sink.WebhookSinkAdapter;
 import com.engine.walpulse.infrastructure.adapter.out.transform.JsonTransformEngineAdapter;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,6 +43,12 @@ public class WalPulseConfig {
     @Bean
     public PgOutputDecoder pgOutputDecoder() {
         return new PgOutputDecoder();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(DeadLetterQueuePort.class)
+    public DeadLetterQueuePort deadLetterQueuePort() {
+        return new MemoryDeadLetterQueueAdapter();
     }
 
     @Bean
@@ -82,6 +91,7 @@ public class WalPulseConfig {
             EventSinkPort eventSink,
             SchemaCacheService schemaCache,
             LsnTrackerService lsnTracker,
+            DeadLetterQueuePort deadLetterQueuePort,
             WalPulseProperties properties
     ) {
         return new ReplicationCoordinator(
@@ -90,8 +100,18 @@ public class WalPulseConfig {
                 eventSink,
                 schemaCache,
                 lsnTracker,
+                deadLetterQueuePort,
                 properties
         );
+    }
+
+    @Bean
+    public WalStreamSimulator walStreamSimulator(
+            ReplicationCoordinator coordinator,
+            SchemaCacheService schemaCache,
+            ObjectMapper objectMapper
+    ) {
+        return new WalStreamSimulator(coordinator, schemaCache, objectMapper);
     }
 
     @EventListener(ApplicationReadyEvent.class)
