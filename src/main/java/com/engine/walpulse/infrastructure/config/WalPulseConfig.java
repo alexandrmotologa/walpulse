@@ -116,8 +116,10 @@ public class WalPulseConfig {
 
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady(ApplicationReadyEvent event) {
-        ReplicationCoordinator coordinator = event.getApplicationContext().getBean(ReplicationCoordinator.class);
-        // Start replication automatically on startup
-        coordinator.start();
+        WalPulseProperties props = event.getApplicationContext().getBean(WalPulseProperties.class);
+        if (props.isAutoStart()) {
+            ReplicationCoordinator coordinator = event.getApplicationContext().getBean(ReplicationCoordinator.class);
+            coordinator.start();
+        }
     }
 }

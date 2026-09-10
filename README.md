@@ -1,8 +1,15 @@
 <p align="center">
-  <img src="docs/images/logo.png" alt="WalPulse Logo" width="160" height="160">
+  <img src="docs/images/logo.png?raw=true" alt="WalPulse Logo" width="130" style="border-radius: 24px;" />
 </p>
 
 <h1 align="center">WalPulse</h1>
+
+<p align="center">
+  <a href="https://github.com/alexandrmotologa/walpulse/actions"><img src="https://github.com/alexandrmotologa/walpulse/actions/workflows/ci.yml/badge.svg" alt="Build Status" /></a>
+  <img src="https://img.shields.io/badge/Java-21%20LTS-orange.svg" alt="Java 21" />
+  <img src="https://img.shields.io/badge/Spring%20Boot-3.3.3-brightgreen.svg" alt="Spring Boot" />
+  <img src="https://img.shields.io/badge/PostgreSQL-14%2B%20%7C%2016-blue.svg" alt="PostgreSQL" />
+</p>
 
 <p align="center">
   <strong>Zero-polling PostgreSQL Change Data Capture engine with native pgoutput decoding, schema catalog tracking, transactional outbox routing, and real-time operator studio.</strong>

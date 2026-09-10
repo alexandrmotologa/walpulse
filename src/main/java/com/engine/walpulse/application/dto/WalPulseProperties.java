@@ -8,6 +8,15 @@ public class WalPulseProperties {
     private PostgresProperties postgres = new PostgresProperties();
     private TableFilterRule filter = new TableFilterRule();
     private SinkProperties sink = new SinkProperties();
+    private boolean autoStart = true;
+
+    public boolean isAutoStart() {
+        return autoStart;
+    }
+
+    public void setAutoStart(boolean autoStart) {
+        this.autoStart = autoStart;
+    }
 
     public PostgresProperties getPostgres() {
         return postgres;
