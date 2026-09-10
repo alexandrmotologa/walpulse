@@ -1,0 +1,62 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: walpulse
+  threads:
+    virtual:
+      enabled: true
+
+walpulse:
+  postgres:
+    host: ${WALPULSE_PG_HOST:localhost}
+    port: ${WALPULSE_PG_PORT:5432}
+    database: ${WALPULSE_PG_DB:postgres}
+    username: ${WALPULSE_PG_USER:postgres}
+    password: ${WALPULSE_PG_PASSWORD:postgres}
+    slot-name: ${WALPULSE_SLOT_NAME:walpulse_slot}
+    publication-name: ${WALPULSE_PUB_NAME:walpulse_pub}
+    create-slot-if-missing: ${WALPULSE_CREATE_SLOT:true}
+    status-interval-ms: ${WALPULSE_STATUS_INTERVAL_MS:5000}
+
+  filter:
+    include-tables:
+      - ".*"
+    exclude-tables:
+      - "public.schema_migrations"
+      - "public.flyway_schema_history"
+    masked-fields:
+      - "password"
+      - "secret"
+      - "token"
+      - "credit_card"
+      - "ssn"
+
+  sink:
+    type: ${WALPULSE_SINK_TYPE:logging} # logging, kafka, webhook, composite
+    kafka:
+      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+      topic-prefix: ${KAFKA_TOPIC_PREFIX:cdc.}
+      acks: "all"
+      retries: 3
+    webhook:
+      url: ${WEBHOOK_URL:http://localhost:9000/webhook}
+      secret: ${WEBHOOK_SECRET:walpulse-signing-secret}
+      timeout-ms: 5000
+      max-retries: 3
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    root: INFO
+    com.engine.walpulse: DEBUG
+    org.postgresql: INFO
