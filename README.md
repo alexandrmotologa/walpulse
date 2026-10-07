@@ -24,6 +24,10 @@
   <a href="#verification-and-testing">Testing</a>
 </p>
 
+<p align="center">
+  <img src="docs/images/walpulse-demo.gif?raw=true" alt="WalPulse Showcase Walkthrough Demo" width="900" style="border-radius: 12px; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5);" />
+</p>
+
 ---
 
 WalPulse is a standalone Change Data Capture (CDC) engine and stream transformer for PostgreSQL. It attaches directly to PostgreSQL logical replication slots using the native `pgoutput` streaming protocol over standard TCP. It captures row-level inserts, updates, and deletes with sub-millisecond latency, performs zero polling on source tables, transforms payloads in flight, and forwards events to Kafka, HTTP webhooks, or log sinks.
