@@ -84,6 +84,7 @@
     </dependencies>
 
     <build>
+        <finalName>walpulse</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
